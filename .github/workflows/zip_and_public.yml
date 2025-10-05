@@ -1,0 +1,102 @@
+name: Package and Release Plugins
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  package-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare version tag (UTC)
+        id: tag
+        shell: bash
+        run: |
+          rand="$(openssl rand -hex 3)" # 6位十六进制随机字符串
+          tag="v$(date -u +'%Y%m%d')-${rand}"
+          echo "value=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Zip each top-level directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # 打包根目录下的每一个一级子目录（排除 .git、.github、dist 等）
+          while IFS= read -r -d '' dir; do
+            name="$(basename "$dir")"
+            zip -r "dist/${name}.zip" "$dir" -x "*/.git/*"
+          done < <(find . -mindepth 1 -maxdepth 1 -type d \
+                    -not -name ".git" \
+                    -not -name ".github" \
+                    -not -name "dist" \
+                    -print0)
+
+      - name: Generate release notes from commits
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 分组生成各类型的临时说明文件
+          types=(feat fix perf refactor docs style test build ci chore revert other)
+          declare -A sectionMap=(
+            [feat]="Features" [fix]="Bug Fixes" [docs]="Documentation" [refactor]="Code Refactoring"
+            [perf]="Performance" [test]="Tests" [build]="Build System" [ci]="Continuous Integration"
+            [style]="Styles" [revert]="Reverts" [chore]="Chores" [other]="Others"
+          )
+          declare -A emojiMap=(
+            [feat]="🎸" [fix]="🐛" [docs]="📝" [refactor]="♻️" [perf]="⚡️" [test]="✅" [build]="🏗️"
+            [ci]="👷" [style]="💄" [revert]="⏪" [chore]="🔧" [other]="📦"
+          )
+
+          for t in "${types[@]}"; do : > "notes_${t}.md"; done
+
+          # 遍历 push 事件的 commits，识别类型并写入对应文件
+          # 预编译匹配 Conventional Commits 的正则
+          re='^([a-zA-Z]+)(\([^)]+\))?(!)?:'
+
+          while IFS= read -r row; do
+            message=$(echo "$row" | base64 -d | jq -r '.message')
+            sha=$(echo "$row" | base64 -d | jq -r '.id')
+            subject=$(printf '%s\n' "$message" | head -n1)
+            type="other"
+            if [[ $subject =~ $re ]]; then
+              type="${BASH_REMATCH[1],,}"
+            fi
+            # 去除类型前缀（如 feat(scope)!: ）后用于展示
+            headline=$(echo "$subject" | sed -E 's/^[a-zA-Z]+(\([^)]+\))?(!)?:[[:space:]]*//')
+            # 进一步移除开头重复的 emoji 与空格，避免与类型对应的 emoji 重复显示
+            headline=$(echo "$headline" | sed -E ':a;s/^(🎸|🐛|📝|♻️|♻|⚡️|⚡|✅|🏗️|🏗|👷|💄|⏪|🔧|📦)[[:space:]]*//;ta')
+            short="${sha:0:7}"
+            url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$sha"
+            emoji="${emojiMap[$type]}"
+            echo "* ${emoji} ${headline} ([${short}](${url}))" >> "notes_${type}.md"
+          done < <(jq -r '.commits[] | @base64' "$GITHUB_EVENT_PATH")
+
+          # 组装最终 release 内容
+          : > release_body.md
+          for t in "${types[@]}"; do
+            if [ -s "notes_${t}.md" ]; then
+              echo "### ${sectionMap[$t]}" >> release_body.md
+              echo >> release_body.md
+              cat "notes_${t}.md" >> release_body.md
+              echo >> release_body.md
+            fi
+          done
+
+      - name: Create GitHub Release and upload assets
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.tag.outputs.value }}
+          name: ${{ steps.tag.outputs.value }}
+          bodyFile: release_body.md
+          artifacts: dist/*.zip
+          artifactContentType: application/zip
+          draft: false
+          prerelease: false
+
