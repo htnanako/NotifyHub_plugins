@@ -22,8 +22,34 @@ jobs:
           tag="v$(date -u +'%Y%m%d')-${rand}"
           echo "value=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Check if only docs/ci commits
+        id: skip
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 如果本次 push 的所有提交均为 docs 或 ci，则跳过后续任务
+          non_allowed=$(jq -r '.commits[].message' "$GITHUB_EVENT_PATH" | awk 'BEGIN{cnt=0} {
+            line=$0; sub("\\r$", "", line); sub("\\n$", "", line);
+            # 取第一行
+            # 判断是否以 docs: 或 ci: 开头（允许带 scope/!）
+            if (match(line, /^[a-zA-Z]+(\([^)]+\))?(!)?:/)) {
+              type=tolower(substr(line, RSTART, RLENGTH));
+            }
+            # 提取 type 名称部分
+            if (match(type, /^[a-zA-Z]+/)) {
+              t=substr(type, RSTART, RLENGTH);
+            } else { t="other" }
+            if (t!="docs" && t!="ci") { cnt++ }
+          } END{ print cnt }')
+          if [ "$non_allowed" -eq 0 ]; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Zip each top-level directory
         shell: bash
+        if: ${{ steps.skip.outputs.value == 'false' }}
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -40,6 +66,7 @@ jobs:
       - name: Generate release notes from commits
         id: notes
         shell: bash
+        if: ${{ steps.skip.outputs.value == 'false' }}
         run: |
           set -euo pipefail
           # 分组生成各类型的临时说明文件
@@ -68,6 +95,10 @@ jobs:
             if [[ $subject =~ $re ]]; then
               type="${BASH_REMATCH[1],,}"
             fi
+            # 不在 Release 内容中展示 docs / ci 类型
+            if [[ "$type" == "docs" || "$type" == "ci" ]]; then
+              continue
+            fi
             # 去除类型前缀（如 feat(scope)!: ）后用于展示
             headline=$(echo "$subject" | sed -E 's/^[a-zA-Z]+(\([^)]+\))?(!)?:[[:space:]]*//')
             # 进一步移除开头重复的 emoji 与空格，避免与类型对应的 emoji 重复显示
@@ -91,6 +122,7 @@ jobs:
 
       - name: Create GitHub Release and upload assets
         uses: ncipollo/release-action@v1
+        if: ${{ steps.skip.outputs.value == 'false' }}
         with:
           tag: ${{ steps.tag.outputs.value }}
           name: ${{ steps.tag.outputs.value }}
