@@ -18,8 +18,13 @@ jobs:
         id: tag
         shell: bash
         run: |
-          rand="$(openssl rand -hex 3)" # 6位十六进制随机字符串
-          tag="v$(date -u +'%Y%m%d')-${rand}"
+          hour_dec="$(TZ='Asia/Shanghai' date +%H)"
+          min_dec="$(TZ='Asia/Shanghai' date +%M)"
+          hour_hex="$(printf '%02x' "$((10#$hour_dec))")"
+          min_hex="$(printf '%02x' "$((10#$min_dec))")"
+          rand_hex="$(openssl rand -hex 1)"
+          suffix="v$(TZ='Asia/Shanghai' date +'%Y%m%d')"
+          tag="${suffix}-${hour_hex}${min_hex}${rand_hex}"
           echo "value=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Check if only docs/ci commits
