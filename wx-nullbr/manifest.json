@@ -52,6 +52,14 @@
             "defaultValue": ""
         },
         {
+            "fieldName": "proxy",
+            "fieldType": "string",
+            "label": "代理地址",
+            "helpText": "留空则不使用代理。支持通过HTTP代理、SOCKS代理发送消息。示范：http://localhost:1080",
+            "defaultValue": "",
+            "required": false
+        },
+        {
             "fieldName": "nullbr_appid",
             "fieldType": "string",
             "label": "nullbr网站的 appid",
@@ -66,6 +74,12 @@
             "defaultValue": ""
         }
     ],
-    "helpTextField": [],
+    "helpTextField": [
+        { "fieldType": "title", "value": "企业微信接入115资源搜索" },
+        { "fieldType": "text", "value": "企业微信接入115资源搜索，需要先在企业微信中配置应用，获取相关信息并填写" },
+        { "fieldType": "text", "value": "nullbr网站的信息，到这里申请 https://nullbr.online/manage" },
+        { "fieldType": "title", "value": "在企业微信管理后台设置接收消息的URL为：" },
+        { "fieldType": "code", "value": "{site_url}/api/plugins/wx-nullbr/chat" }
+    ],
     "frontend_page": {}
 }

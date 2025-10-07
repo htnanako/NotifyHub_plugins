@@ -113,6 +113,11 @@ class wxNullbrConfig:
     def sEncodingAESKey(self) -> Optional[str]:
         """获取企业微信EncodingAESKey"""
         return self._get_config_value("sEncodingAESKey", "")
+
+    @property
+    def proxy(self) -> Optional[str]:
+        """获取企业微信代理地址"""
+        return self._get_config_value("proxy", None)
     
     @property
     def nullbr_appid(self) -> Optional[str]:

@@ -1,12 +1,15 @@
 import httpx
 import logging
 
+from ..utils import config
+
 logger = logging.getLogger(__name__)
 
 class TmdbApi:
     def __init__(self):
         self.base_url = "https://api.themoviedb.org/3"
         self.api_key = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI3ZjFkODYxYWUxMTNjN2NjZGQ2YTM4NGNiMjlmYmFjMiIsIm5iZiI6MTY0NDkwNjE2OS45MzEsInN1YiI6IjYyMGI0NmI5YzA3MmEyMDA2OGE2ZjgyZCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.lmCVbPJA7ddKpGfGVZ02Gth_3bTGOJczaQek9tWWZOY"
+        self.proxy = config.proxy
 
     def get_movie_info(self, movie_name):
         url = f"{self.base_url}/search/movie?query={movie_name}&include_adult=false&language=zh-CN&page=1"
@@ -14,8 +17,8 @@ class TmdbApi:
             "Authorization": f"Bearer {self.api_key}"
         }
         try:
-            response = httpx.get(url, headers=headers, timeout=15)
-            response.raise_for_status()
+            response = httpx.get(url, headers=headers, timeout=15, proxy=self.proxy)
+            response.raise_for_status() 
             data = response.json()
             if not isinstance(data, dict):
                 logger.warning("TMDB 响应非字典结构: %s", type(data))
@@ -40,7 +43,7 @@ class TmdbApi:
             "Authorization": f"Bearer {self.api_key}"
         }
         try:
-            response = httpx.get(url, headers=headers, timeout=15)
+            response = httpx.get(url, headers=headers, timeout=15, proxy=self.proxy)
             response.raise_for_status()
             data = response.json()
             if not isinstance(data, dict):
