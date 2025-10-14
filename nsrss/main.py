@@ -24,8 +24,9 @@ class RSSMonitor:
             
     def setup_data_storage(self):
         """设置数据存储"""
-        self.processed_file = os.path.join('data', 'conf', 'nsrss', 'processed_posts.json')
-        os.makedirs(os.path.dirname(self.processed_file), exist_ok=True)
+        self.processed_file = os.path.join(os.environ.get("WORKDIR"), 'conf', 'nsrss', 'processed_posts.json')
+        if not os.path.isdir(os.path.dirname(self.processed_file)):
+            os.makedirs(os.path.dirname(self.processed_file), exist_ok=True)
         self.processed_posts = self.load_processed_posts()
         self.ns_list = set(self.processed_posts.get("ns", []))
         self.df_list = set(self.processed_posts.get("df", []))
