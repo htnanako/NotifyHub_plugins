@@ -330,8 +330,13 @@
           // 尝试拆分 YYYY-MM-DD HH:mm
           const parts = (d.reminder_time || '').split(/\s+/);
           if (parts.length >= 2) {
-            $('date').value = parts[0];
-            $('time').value = parts[1].slice(0,5);
+            const dateValue = parts[0];
+            const timeValue = parts[1].slice(0,5);
+            $('date').value = dateValue;
+            $('time').value = timeValue;
+            // 更新显示文本
+            setDateValue(dateValue);
+            setTimeValue(timeValue);
           }
           updateDateTimeMins();
         } else if (d.reminder_type === 'circle') {

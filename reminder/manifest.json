@@ -5,7 +5,7 @@
     "author": "htnanako",
     "logo": "/data/plugins/reminder/reminder.png",
     "thumbnailurl": "/data/plugins/reminder/reminder_thumb.png",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "documentation": "",
     "path": "/reminder",
     "configField": [],
