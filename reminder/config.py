@@ -16,9 +16,9 @@ class ReminderConfig(BaseModel):
     notify_route: str
 
 
-config_floder = os.path.join("data", "conf", "reminder")
-config_file = os.path.join(config_floder, "config.json")
-os.makedirs(config_floder, exist_ok=True)
+config_file = os.path.join(os.environ.get("WORKDIR"), "conf", "reminder", "config.json")
+if not os.path.exists(os.path.dirname(config_file)):
+    os.makedirs(os.path.dirname(config_file), exist_ok=True)
 if not os.path.exists(config_file):
     with open(config_file, "w") as f:
         f.write("[]")
