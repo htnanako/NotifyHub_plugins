@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>提醒任务列表</title>
+    <title>Reminder 管理</title>
     <script>
       try { tailwind = tailwind || {}; } catch (e) { /* ignore */ }
       try { tailwind.config = Object.assign({}, tailwind.config || {}, { darkMode: 'class' }); } catch (e) { /* ignore */ }
@@ -43,8 +43,23 @@
           window.nhtheme = t;
           // 同步弹窗主题
           syncThemeToModals(t);
+          // 同步 iframe 主题
+          syncThemeToIframes(t);
           try { console.log('[reminder:index] theme updated ->', t, 'html.classes=', root.className, 'body.classes=', (body&&body.className)); } catch (e) {}
         }
+        
+        function syncThemeToIframes(theme) {
+          var t = (theme || '').toString().toLowerCase() === 'dark' ? 'dark' : 'light';
+          var iframes = document.querySelectorAll('iframe');
+          iframes.forEach(function(iframe) {
+            try {
+              if (iframe.contentWindow && iframe.contentWindow.postMessage) {
+                iframe.contentWindow.postMessage({ type: 'injectTheme', theme: t }, '*');
+              }
+            } catch (e) {}
+          });
+        }
+        
         function getThemeFromParent() {
           try { if (window.parent && window.parent !== window) { var t = window.parent.nhtheme; if (t === 'light' || t === 'dark') return t; } } catch (e) {}
           try { var s = localStorage.getItem('nhtheme'); if (s === 'light' || s === 'dark') return s; } catch (e) {}
@@ -63,164 +78,133 @@
     </script>
   </head>
   <body class="bg-white text-gray-900">
-    <header class="data-[theme=light]:bg-white data-[theme=light]:border-gray-200 data-[theme=dark]:bg-gray-900 data-[theme=dark]:border-gray-800">
-      <div class="w-full px-6 py-6">
-        <h1 class="text-2xl font-semibold data-[theme=dark]:text-gray-100">Reminder 列表</h1>
-        <p class="text-sm text-gray-500 mt-1 data-[theme=dark]:text-gray-400">管理Reminder任务列表</p>
+    <!-- 顶部选项卡导航 -->
+    <header class="border-b data-[theme=light]:bg-white data-[theme=light]:border-gray-200 data-[theme=dark]:bg-gray-900 data-[theme=dark]:border-gray-800">
+      <div class="w-full px-6">
+        <div class="flex space-x-1" role="tablist">
+          <button
+            id="tab-reminder"
+            role="tab"
+            aria-selected="true"
+            class="px-6 py-4 text-sm font-medium border-b-2 border-blue-500 text-blue-600 data-[theme=dark]:text-blue-400 data-[theme=dark]:border-blue-400 transition-colors"
+            onclick="switchTab('reminder')"
+          >
+            Reminder 列表
+          </button>
+          <button
+            id="tab-subscribe"
+            role="tab"
+            aria-selected="false"
+            class="px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 data-[theme=dark]:text-gray-400 data-[theme=dark]:hover:text-gray-300 transition-colors"
+            onclick="switchTab('subscribe')"
+          >
+            Subscribe 列表
+          </button>
+        </div>
       </div>
     </header>
 
-    <main class="w-full px-6 py-8">
-      <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
-        <!-- 添加提醒卡片（固定第一个，大小与普通卡片一致） -->
-        <a href="form.html" class="group relative h-64 rounded-xl border border-dashed border-gray-300 hover:border-blue-400 hover:shadow-md transition data-[theme=light]:bg-white data-[theme=dark]:bg-gray-800 data-[theme=dark]:border-gray-700">
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <div class="rounded-full bg-blue-50 text-blue-600 p-3 group-hover:bg-blue-100">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7">
-                <path d="M12 4.5a.75.75 0 01.75.75v5.25H18a.75.75 0 010 1.5h-5.25V18a.75.75 0 01-1.5 0v-5.25H6a.75.75 0 010-1.5h5.25V5.25A.75.75 0 0112 4.5z" />
-              </svg>
-            </div>
-            <div class="mt-3 text-sm text-gray-600">添加一个新的Reminder任务</div>
-          </div>
-        </a>
+    <!-- 内容区域 -->
+    <main class="w-full" style="height: calc(100vh - 60px); overflow: hidden;">
+      <div id="content-reminder" class="w-full h-full">
+        <iframe
+          id="iframe-reminder"
+          src="reminder.html"
+          class="w-full h-full border-0"
+          frameborder="0"
+          title="Reminder 列表"
+          loading="lazy"
+        ></iframe>
+      </div>
+      <div id="content-subscribe" class="w-full h-full hidden">
+        <iframe
+          id="iframe-subscribe"
+          src="subscribe.html"
+          class="w-full h-full border-0"
+          frameborder="0"
+          title="Subscribe 列表"
+          loading="lazy"
+        ></iframe>
       </div>
     </main>
 
     <script>
-      const API_BASE = '/api/plugins/reminder';
-      // 数据将通过接口加载，无模拟数据
-
-      const cards = document.getElementById('cards');
-      async function apiRequest(path, options) {
-        const res = await fetch(`${API_BASE}${path}`, options);
-        try { return await res.json(); } catch (e) { return null; }
+      function switchTab(tabName) {
+        // 更新选项卡状态
+        const tabs = ['reminder', 'subscribe'];
+        tabs.forEach(tab => {
+          const tabBtn = document.getElementById(`tab-${tab}`);
+          const content = document.getElementById(`content-${tab}`);
+          
+          if (tab === tabName) {
+            // 激活当前选项卡
+            tabBtn.setAttribute('aria-selected', 'true');
+            tabBtn.classList.remove('border-transparent', 'text-gray-500', 'data-[theme=dark]:text-gray-400');
+            tabBtn.classList.add('border-blue-500', 'text-blue-600', 'data-[theme=dark]:text-blue-400', 'data-[theme=dark]:border-blue-400');
+            content.classList.remove('hidden');
+            
+            // 同步主题到 iframe
+            if (window.nhtheme) {
+              const iframe = content.querySelector('iframe');
+              if (iframe && iframe.contentWindow) {
+                try {
+                  iframe.contentWindow.postMessage({ type: 'injectTheme', theme: window.nhtheme }, '*');
+                } catch (e) {}
+              }
+            }
+          } else {
+            // 取消激活其他选项卡
+            tabBtn.setAttribute('aria-selected', 'false');
+            tabBtn.classList.remove('border-blue-500', 'text-blue-600', 'data-[theme=dark]:text-blue-400', 'data-[theme=dark]:border-blue-400');
+            tabBtn.classList.add('border-transparent', 'text-gray-500', 'data-[theme=dark]:text-gray-400');
+            content.classList.add('hidden');
+          }
+        });
       }
 
-      let notifyLabelMap = {};
-      async function loadNotifyRoutes() {
-        try {
-          const resp = await apiRequest('/notify_route', { method: 'GET' });
-          const list = (resp && Array.isArray(resp.data)) ? resp.data : [];
-          notifyLabelMap = {};
-          list.forEach(it => { notifyLabelMap[String(it.value)] = String(it.label || it.value); });
-        } catch (e) { notifyLabelMap = {}; }
-      }
-
-      function statusBadge(enabled) {
-        return enabled
-          ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">已启用</span>'
-          : '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">已禁用</span>';
-      }
-
-      function typeBadge(type) {
-        const map = {
-          onetime: { label: '一次性', cls: 'bg-purple-50 text-purple-700' },
-          circle: { label: '循环', cls: 'bg-blue-50 text-blue-700' }
-        };
-        const meta = map[type] || { label: type, cls: 'bg-gray-100 text-gray-600' };
-        return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${meta.cls}">${meta.label}</span>`;
-      }
-
-      function createTaskCard(task) {
-        const card = document.createElement('div');
-        card.className = 'h-64 flex flex-col rounded-xl border shadow-sm hover:shadow-md transition data-[theme=light]:bg-white data-[theme=dark]:bg-gray-800 data-[theme=dark]:border-gray-700';
-        card.setAttribute('data-task-id', task.id);
-        const routeLabel = notifyLabelMap[String(task.notify_route || '')] || (task.notify_route || '');
-        card.innerHTML = `
-          <div class="p-5 flex-1 flex flex-col">
-            <div class="flex items-start justify-between gap-2">
-              <h3 class="text-base font-semibold truncate">${task.title || '未命名任务'}</h3>
-              <div class="flex items-center gap-2">${statusBadge(task.status)}${typeBadge(task.reminder_type)}</div>
-            </div>
-            <div class="mt-3 text-sm text-gray-600 flex-1 overflow-hidden">
-              <div class="line-clamp-3">${task.content ? task.content : ''}</div>
-            </div>
-            <div class="mt-auto">
-              <div class="flex items-center text-sm text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 mr-1 text-gray-500">
-                  <path d="M12 2.25a6.75 6.75 0 00-6.75 6.75v2.172c0 .414-.164.812-.457 1.105l-1.2 1.2a.75.75 0 00.53 1.28h17.754a.75.75 0 00.53-1.28l-1.2-1.2a1.56 1.56 0 01-.457-1.105V9A6.75 6.75 0 0012 2.25zM9.75 19.5a2.25 2.25 0 004.5 0h-4.5z" />
-                </svg>
-                <span class="truncate" title="${routeLabel}">${routeLabel}</span>
-              </div>
-              <div class="flex items-center text-sm text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 mr-1 text-gray-500">
-                  <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm.75 4.5a.75.75 0 00-1.5 0v5.19c0 .199.079.39.22.53l3.5 3.5a.75.75 0 101.06-1.06l-3.28-3.28V6.75z" clip-rule="evenodd" />
-                </svg>
-                <span class="truncate" title="${task.reminder_time}">${task.reminder_time}</span>
-              </div>
-            </div>
-          </div>
-          <div class="px-4 py-3 border-t rounded-b-xl grid grid-cols-2 gap-3 data-[theme=light]:bg-gray-50 data-[theme=dark]:bg-gray-900 data-[theme=dark]:border-gray-700">
-            <button class="inline-flex items-center justify-center h-10 rounded-lg border hover:text-blue-600 hover:border-blue-300 data-[theme=light]:bg-white data-[theme=light]:text-gray-700 data-[theme=dark]:bg-gray-900 data-[theme=dark]:text-gray-200 data-[theme=dark]:border-gray-700" title="编辑" onclick="onEdit('${task.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
-                <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712z" />
-                <path d="M3.75 15.75v3.5a.75.75 0 00.75.75h3.5l9.546-9.546-3.712-3.712L3.75 15.75z" />
-              </svg>
-            </button>
-            <button class="inline-flex items-center justify-center h-10 rounded-lg border hover:text-red-600 hover:border-red-300 data-[theme=light]:bg-white data-[theme=light]:text-gray-700 data-[theme=dark]:bg-gray-900 data-[theme=dark]:text-gray-200 data-[theme=dark]:border-gray-700" title="删除" onclick="openDeleteDialog('${task.id}')">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
-                <path fill-rule="evenodd" d="M16.5 4.478V4.125C16.5 3.089 15.661 2.25 14.625 2.25h-5.25C8.339 2.25 7.5 3.089 7.5 4.125v.353H4.875a.75.75 0 000 1.5h.375l.79 12.64A2.625 2.625 0 008.66 21h6.68a2.625 2.625 0 002.62-2.382l.79-12.64h.375a.75.75 0 000-1.5H16.5zm-7.875 0V4.125c0-.207.168-.375.375-.375h5.25c.207 0 .375.168.375.375v.353H8.625zM9.75 9.75a.75.75 0 011.5 0v6a.75.75 0 01-1.5 0v-6zm4.5 0a.75.75 0 011.5 0v6a.75.75 0 01-1.5 0v-6z" clip-rule="evenodd" />
-              </svg>
-            </button>
-          </div>
-        `;
-        return card;
-      }
-
-      function onEdit(id) {
-        location.href = `form.html?id=${encodeURIComponent(id)}`;
-      }
-
-      let pendingDeleteId = null;
-      function openDeleteDialog(id) {
-        pendingDeleteId = id;
-        const dlg = document.getElementById('deleteDialog');
-        if (dlg) dlg.classList.remove('hidden');
-      }
-      function closeDeleteDialog() {
-        pendingDeleteId = null;
-        const dlg = document.getElementById('deleteDialog');
-        if (dlg) dlg.classList.add('hidden');
-      }
-      async function confirmDelete() {
-        const id = pendingDeleteId;
-        if (!id) { closeDeleteDialog(); return; }
-        try {
-          await apiRequest(`/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        } catch (e) {}
-        const toRemove = cards.querySelector(`[data-task-id="${CSS.escape(id)}"]`);
-        if (toRemove && toRemove.parentElement === cards) cards.removeChild(toRemove);
-        closeDeleteDialog();
-      }
-
-      // 渲染任务卡片（添加卡片固定在第一个）
-      async function loadList() {
-        let list = [];
-        try {
-          const resp = await apiRequest('/tasks', { method: 'GET' });
-          if (resp && Array.isArray(resp.data)) list = resp.data;
-        } catch (e) {}
-        await loadNotifyRoutes();
-        list.forEach(task => { cards.appendChild(createTaskCard(task)); });
-      }
-      loadList();
+      // 页面加载完成后同步主题到当前显示的 iframe
+      document.addEventListener('DOMContentLoaded', function() {
+        // 延迟同步主题，确保 iframe 已加载
+        function syncThemeToActiveIframe() {
+          const activeTab = document.querySelector('[role="tab"][aria-selected="true"]');
+          if (activeTab) {
+            const tabId = activeTab.id.replace('tab-', '');
+            const activeContent = document.getElementById(`content-${tabId}`);
+            if (activeContent && !activeContent.classList.contains('hidden') && window.nhtheme) {
+              const iframe = activeContent.querySelector('iframe');
+              if (iframe) {
+                iframe.addEventListener('load', function() {
+                  try {
+                    if (iframe.contentWindow) {
+                      iframe.contentWindow.postMessage({ type: 'injectTheme', theme: window.nhtheme }, '*');
+                    }
+                  } catch (e) {}
+                });
+                // 如果 iframe 已经加载，立即同步
+                try {
+                  if (iframe.contentWindow && iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+                    iframe.contentWindow.postMessage({ type: 'injectTheme', theme: window.nhtheme }, '*');
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+        }
+        
+        setTimeout(syncThemeToActiveIframe, 300);
+        
+        // 监听所有 iframe 的加载事件
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach(function(iframe) {
+          iframe.addEventListener('load', function() {
+            if (window.nhtheme && iframe.contentWindow) {
+              try {
+                iframe.contentWindow.postMessage({ type: 'injectTheme', theme: window.nhtheme }, '*');
+              } catch (e) {}
+            }
+          });
+        });
+      });
     </script>
-    <!-- 删除确认对话框（Tailwind） -->
-    <div id="deleteDialog" class="hidden fixed inset-0 z-50">
-      <div class="absolute inset-0 bg-black/50" onclick="closeDeleteDialog()"></div>
-      <div class="absolute inset-0 flex items-center justify-center p-4">
-        <div data-theme-container class="w-full max-w-sm rounded-xl shadow-lg data-[theme=light]:bg-white data-[theme=dark]:bg-gray-900" data-theme="light">
-          <div class="px-5 pt-5">
-            <h3 class="text-base font-semibold data-[theme=light]:text-gray-900 data-[theme=dark]:text-gray-100">确认删除</h3>
-            <p class="mt-2 text-sm data-[theme=light]:text-gray-600 data-[theme=dark]:text-gray-400">删除后将无法恢复，是否继续？</p>
-          </div>
-          <div class="mt-5 px-5 pb-5 flex items-center justify-end gap-3">
-            <button class="inline-flex items-center justify-center h-10 px-4 rounded-lg border data-[theme=light]:border-gray-300 data-[theme=dark]:border-gray-700 data-[theme=light]:bg-white data-[theme=dark]:bg-gray-800 data-[theme=light]:text-gray-700 data-[theme=dark]:text-gray-300 data-[theme=light]:hover:text-gray-900 data-[theme=dark]:hover:text-gray-100" onclick="closeDeleteDialog()">取消</button>
-            <button class="inline-flex items-center justify-center h-10 px-4 rounded-lg bg-red-600 text-white hover:bg-red-700" onclick="confirmDelete()">删除</button>
-          </div>
-        </div>
-      </div>
-    </div>
   </body>
-  </html>
-
+</html>

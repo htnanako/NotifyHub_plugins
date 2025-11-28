@@ -38,7 +38,7 @@
 
         try { localStorage.setItem('nhtheme', t); } catch (e) { }
         window.nhtheme = t;
-        try { console.log('[reminder:form] theme updated ->', t, 'html.classes=', root.className); } catch (e) { }
+        try { console.log('[reminder:reminder_form] theme updated ->', t, 'html.classes=', root.className); } catch (e) { }
       }
 
       // 同步主题到所有弹窗和下拉菜单
@@ -270,7 +270,7 @@
         <div class="flex items-center gap-4">
           <button type="button" id="btnSave"
             class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">保存</button>
-          <a href="index.html"
+          <a href="reminder.html"
             class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg border bg-white text-gray-700 hover:text-gray-900 data-[theme=dark]:bg-gray-900 data-[theme=dark]:text-gray-200 data-[theme=dark]:border-gray-700">取消</a>
         </div>
       </div>
@@ -356,7 +356,7 @@
     const API_BASE = '/api/plugins/reminder';
     async function fetchDetail(id) {
       try {
-        const res = await fetch(`${API_BASE}/tasks/${encodeURIComponent(id)}`);
+        const res = await fetch(`${API_BASE}/reminder/${encodeURIComponent(id)}`);
         const data = await res.json();
         if (data && data.data) return data.data;
       } catch (e) { }
@@ -669,12 +669,12 @@
       btn.disabled = true; btn.textContent = isUpdate ? '保存中...' : '创建中...';
       try {
         if (isUpdate) {
-          await apiRequest(`/tasks/${encodeURIComponent(payload.id)}`, { method: 'PUT', body: JSON.stringify(payload) });
+          await apiRequest(`/reminder/${encodeURIComponent(payload.id)}`, { method: 'PUT', body: JSON.stringify(payload) });
         } else {
-          await apiRequest('/tasks', { method: 'POST', body: JSON.stringify(payload) });
+          await apiRequest('/reminder', { method: 'POST', body: JSON.stringify(payload) });
         }
         // 成功后返回列表
-        location.href = 'index.html';
+        location.href = 'reminder.html';
       } catch (e) {
         showActionError((e && e.message) || '保存失败');
       } finally {
@@ -810,3 +810,4 @@
 </body>
 
 </html>
+
