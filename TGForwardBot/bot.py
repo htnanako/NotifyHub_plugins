@@ -14,7 +14,7 @@ from telegram.ext import (
     ContextTypes,
     filters
 )
-from telegram.error import TelegramError
+from telegram.error import TelegramError, BadRequest
 from telegram.request import HTTPXRequest
 
 from .config import config
@@ -673,6 +673,9 @@ class TGBot:
             else:
                 user_name = f"用户 {chat_id}"
             
+            forward_msg = message_text + user_info
+            
+            # 先尝试创建包含用户跳转按钮的键盘
             keyboard = [
                 [
                     InlineKeyboardButton(
@@ -688,8 +691,28 @@ class TGBot:
                 ]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            forward_msg = message_text + user_info
-            await self._notify_manager(forward_msg, reply_markup=reply_markup)
+            
+            try:
+                await self._notify_manager(forward_msg, reply_markup=reply_markup)
+            except BadRequest as e:
+                # 如果用户隐私设置不允许跳转，则使用不包含跳转按钮的版本
+                if "Button_user_privacy_restricted" in str(e):
+                    keyboard_fallback = [
+                        [
+                            InlineKeyboardButton(
+                                text="🚫 封禁用户",
+                                callback_data=f"block_user:{chat_id}"
+                            )
+                        ]
+                    ]
+                    reply_markup_fallback = InlineKeyboardMarkup(keyboard_fallback)
+                    try:
+                        await self._notify_manager(forward_msg, reply_markup=reply_markup_fallback)
+                    except Exception as fallback_error:
+                        # 降级版本也失败，记录错误但不影响主流程
+                        logger.error(f"[{PLUGIN_ID}] 降级版本发送失败: {fallback_error}", exc_info=True)
+                else:
+                    raise
             
             # 发送确认消息，10秒后自动删除
             confirm_msg = await update.message.reply_text("消息已收到！(10s后自动销毁)")
@@ -762,6 +785,11 @@ class TGBot:
             else:
                 user_name = f"用户 {chat_id}"
             
+            caption = f"收到来自用户的{media_type}{user_info}"
+            if message.caption:
+                caption = f"{message.caption}{user_info}"
+            
+            # 先尝试创建包含用户跳转按钮的键盘
             keyboard = [
                 [
                     InlineKeyboardButton(
@@ -778,10 +806,6 @@ class TGBot:
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            caption = f"收到来自用户的{media_type}{user_info}"
-            if message.caption:
-                caption = f"{message.caption}{user_info}"
-            
             try:
                 if file_id and media_type_key:
                     await self._forward_media_to_manager(
@@ -790,6 +814,31 @@ class TGBot:
                         caption=caption,
                         reply_markup=reply_markup
                     )
+            except BadRequest as e:
+                # 如果用户隐私设置不允许跳转，则使用不包含跳转按钮的版本
+                if "Button_user_privacy_restricted" in str(e):
+                    keyboard_fallback = [
+                        [
+                            InlineKeyboardButton(
+                                text="🚫 封禁用户",
+                                callback_data=f"block_user:{chat_id}"
+                            )
+                        ]
+                    ]
+                    reply_markup_fallback = InlineKeyboardMarkup(keyboard_fallback)
+                    if file_id and media_type_key:
+                        try:
+                            await self._forward_media_to_manager(
+                                file_id, 
+                                media_type_key, 
+                                caption=caption,
+                                reply_markup=reply_markup_fallback
+                            )
+                        except Exception as fallback_error:
+                            # 降级版本也失败，记录错误但不影响主流程
+                            logger.error(f"[{PLUGIN_ID}] 降级版本发送失败: {fallback_error}", exc_info=True)
+                else:
+                    raise
             except Exception as e:
                 logger.error(f"[{PLUGIN_ID}] 转发媒体失败: {e}", exc_info=True)
             
@@ -801,18 +850,15 @@ class TGBot:
     
     async def _notify_manager(self, message: str, reply_markup=None):
         """通知管理员"""
-        try:
-            manager_chatid = config.manager_chatid
-            if not manager_chatid:
-                return
-            
-            await self.bot.send_message(
-                chat_id=int(manager_chatid),
-                text=message,
-                reply_markup=reply_markup
-            )
-        except Exception as e:
-            logger.error(f"[{PLUGIN_ID}] 通知管理员失败: {e}", exc_info=True)
+        manager_chatid = config.manager_chatid
+        if not manager_chatid:
+            return
+        
+        await self.bot.send_message(
+            chat_id=int(manager_chatid),
+            text=message,
+            reply_markup=reply_markup
+        )
     
     async def _forward_media_to_manager(
         self, 
