@@ -5,7 +5,7 @@
     "author": "htnanako",
     "logo": "https://nanako-1253183981.cos.ap-guangzhou.myqcloud.com/project/notifyhub/coverimg/tgforwardbot_logo.png",
     "thumbnailurl": "https://nanako-1253183981.cos.ap-guangzhou.myqcloud.com/project/notifyhub/coverimg/tgforwardbot_thumb.png",
-    "version": "0.0.2",
+    "version": "0.1.0",
     "documentation": "",
     "path": "/TGForwardBot",
     "configField": [
@@ -16,6 +16,37 @@
             "helpText": "TG Bot Token，获取方式：https://t.me/BotFather",
             "defaultValue": "",
             "required": true
+        },
+        {
+            "fieldName": "forward_mode",
+            "fieldType": "select",
+            "label": "机器人转发模式",
+            "helpText": "设置机器人转发模式，有私聊模式与群组模式可选",
+            "options": [
+                {
+                    "value": "private",
+                    "label": "私聊模式"
+                },
+                {
+                    "value": "group",
+                    "label": "群组模式"
+                }
+            ],
+            "defaultValue": "private",
+            "required": true
+        },
+        {
+            "fieldName": "group_chatid",
+            "fieldType": "string",
+            "label": "群组ChatID",
+            "helpText": "群组ChatID",
+            "defaultValue": "",
+            "required": true,
+            "conditional": {
+                "field": "forward_mode",
+                "operator": "equals",
+                "value": "group"
+            }
         },
         {
             "fieldName": "manager_chatid",
@@ -47,13 +78,21 @@
         {"fieldType": "text", "value": "实现用户与管理员之间的双向私聊通信。用户发送消息给管理员，管理员可以回复用户。"},
         {"fieldType": "title", "value": "配置说明"},
         {"fieldType": "text", "value": "TG Bot Token：通过 @BotFather 获取"},
+        {"fieldType": "text", "value": "转发模式：选择转发模式，有私聊模式与群组模式可选"},
+        {"fieldType": "text", "value": "群组模式：选择群组模式需配置群组ChatID"},
         {"fieldType": "text", "value": "管理员ChatID：管理员的Telegram用户ID"},
         {"fieldType": "text", "value": "代理地址：可选，如需代理访问Telegram API时填写"},
         {"fieldType": "text", "value": "封禁关键词：可选，多个关键词用英文逗号分隔，包含关键词的消息不会被转发"},
-        {"fieldType": "title", "value": "使用说明"},
+        {"fieldType": "title", "value": "私聊使用说明"},
         {"fieldType": "text", "value": "用户：发送文本或媒体消息给管理员"},
         {"fieldType": "text", "value": "管理员：回复机器人转发的用户消息即可回复用户"},
-        {"fieldType": "text", "value": "封禁功能：在用户消息中点击「封禁用户」按钮，使用 /block_list 管理封禁列表"}
+        {"fieldType": "text", "value": "封禁功能：在用户消息中点击「封禁用户」按钮，使用 /block_list 管理封禁列表"},
+        {"fieldType": "title", "value": "群组模式说明"},
+        {"fieldType": "text", "value": "创建一个群组并开启话题模式"},
+        {"fieldType": "text", "value": "将机器人加入群组，设为管理员并开启管理话题相关权限"},
+        {"fieldType": "text", "value": "选择群组转发模式，在配置中填写群组ChatID"},
+        {"fieldType": "text", "value": "用户私聊机器人，机器人会在群组为该用户创建话题并转发消息；管理员在对应话题直接发送消息即可回传给用户"},
+        {"fieldType": "text", "value": "注意：管理员指令仍需要在机器人私聊窗口中操作"}
     ],
     "frontend_page": {}
 }

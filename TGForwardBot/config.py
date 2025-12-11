@@ -72,11 +72,21 @@ class TGForwardBotConfig:
     def bot_token(self) -> str:
         """获取Bot Token"""
         return self._config.get("tgbot_token", "") if self._config else ""
+
+    @property
+    def forward_mode(self) -> str:
+        """获取转发模式"""
+        return self._config.get("forward_mode", "private") if self._config else "private"
     
     @property
     def manager_chatid(self) -> str:
         """获取管理员ChatID"""
         return self._config.get("manager_chatid", "") if self._config else ""
+    
+    @property
+    def group_chatid(self) -> str:
+        """获取群组ChatID（用于群组话题模式）"""
+        return self._config.get("group_chatid", "") if self._config else ""
     
     @property
     def proxy(self) -> Optional[str]:
@@ -102,6 +112,10 @@ class TGForwardBotConfig:
     def is_valid(self) -> bool:
         """检查配置是否有效"""
         return bool(self.bot_token and self.manager_chatid)
+    
+    def is_group_mode_valid(self) -> bool:
+        """群组模式配置是否有效"""
+        return bool(self.bot_token and self.group_chatid)
     
     def _load_blocklist(self) -> Set[int]:
         """
