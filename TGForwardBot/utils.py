@@ -291,6 +291,11 @@ async def handle_callback_query_common(update, context):
             await query.answer("此操作仅限管理员使用", show_alert=True)
             return
         
+        # 处理不需要管理员权限的回调
+        if callback_data == "already_blocked":
+            await query.answer("该用户已被封禁", show_alert=True)
+            return
+        
         await query.answer()
         
         if callback_data.startswith("block_user:"):
@@ -315,6 +320,31 @@ async def handle_callback_query_common(update, context):
                 success = config.add_to_blocklist(user_id, user_name)
                 if success:
                     await query.answer("✓ 用户已封禁", show_alert=True)
+                    
+                    # 更新按钮状态
+                    try:
+                        original_message = query.message
+                        if original_message and original_message.reply_markup:
+                            keyboard = original_message.reply_markup.inline_keyboard
+                            new_keyboard = []
+                            for row in keyboard:
+                                new_row = []
+                                for button in row:
+                                    if button.callback_data == callback_data:
+                                        new_row.append(
+                                            InlineKeyboardButton(
+                                                text="✅ 已封禁",
+                                                callback_data="already_blocked"
+                                            )
+                                        )
+                                    else:
+                                        new_row.append(button)
+                                new_keyboard.append(new_row)
+                            
+                            new_reply_markup = InlineKeyboardMarkup(new_keyboard)
+                            await original_message.edit_reply_markup(reply_markup=new_reply_markup)
+                    except Exception as e:
+                        logger.error("更新按钮状态失败: %s", e, exc_info=True)
                 else:
                     await query.answer("✗ 封禁失败，请稍后重试", show_alert=True)
             except ValueError:

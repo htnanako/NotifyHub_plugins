@@ -264,7 +264,7 @@ class TGGroupBot:
             
             thread_id = await self._ensure_topic(user)
             if not thread_id:
-                await update.message.reply_text("创建话题失败，请稍后重试。")
+                await update.message.reply_text("消息转发给管理员失败，请稍后重试。")
                 return
             
             user_info = self._build_user_info(chat_id, user)
@@ -281,7 +281,7 @@ class TGGroupBot:
                 reply_markup=keyboard
             )
             
-            confirm = await update.message.reply_text("消息已转发至管理员话题。(10s后自动销毁)")
+            confirm = await update.message.reply_text("消息已转发至管理员。(10s后自动销毁)")
             self._delete_message_after_delay(confirm, delay=10)
         except Exception as e:
             logger.error(f"[{PLUGIN_ID}] 处理用户文本失败: {e}", exc_info=True)
